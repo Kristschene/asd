@@ -1,0 +1,54 @@
+Configuration	asd
+STM32CubeMX 	4.26.0
+Date	08/26/2018
+MCU	STM32L052K6Tx
+
+
+
+PERIPHERALS	MODES	FUNCTIONS	PINS
+SYS	Serial_Wire	SYS_SWCLK	PA14
+SYS	Serial_Wire	SYS_SWDIO	PA13
+SYS	SysTick	SYS_VS_Systick	VP_SYS_VS_Systick
+TIM2	Internal Clock	TIM2_VS_ClockSourceINT	VP_TIM2_VS_ClockSourceINT
+TIM2	PWM Generation CH1	TIM2_CH1	PA15
+TIM2	PWM Generation CH2	TIM2_CH2	PB3
+TSC:Group 1	G1_IO4	TSC_G1_IO4	PA3
+TSC:Group 1	G1_IO1	TSC_G1_IO1	PA0
+
+
+
+Pin Nb	PINs	FUNCTIONs	LABELs
+6	PA0	TSC_G1_IO1	
+9	PA3	TSC_G1_IO4	
+23	PA13	SYS_SWDIO	
+24	PA14	SYS_SWCLK	
+25	PA15	TIM2_CH1	
+26	PB3	TIM2_CH2	
+
+
+
+SOFTWARE PROJECT
+
+Project Settings : 
+Project Name : asd
+Project Folder : C:\Users\Christian\Desktop\asd
+Toolchain / IDE : TrueSTUDIO
+Firmware Package Name and Version : STM32Cube FW_L0 V1.10.0
+
+
+Code Generation Settings : 
+STM32Cube Firmware Library Package : Copy only the necessary library files
+Generate peripheral initialization as a pair of '.c/.h' files per peripheral : No
+Backup previously generated files when re-generating : No
+Delete previously generated files when not re-generated : Yes
+Set all free pins as analog (to optimize the power consumption) : No
+
+
+Toolchains Settings : 
+Compiler Optimizations : Balanced Size/Speed
+
+
+
+
+
+

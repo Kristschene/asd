@@ -1,0 +1,14 @@
+printer.c:57:6:printer_init	40	static
+printer.c:113:6:printer_print_message	40	static
+printer.c:174:6:printer_do_step	16	static
+printer.c:227:6:printer_motor_off	8	static
+printer.c:235:6:printer_prepare_message_for_print	40	static
+printer.c:310:6:printer_drive_to_next_label	24	static
+printer.c:342:15:printer_get_paper_status	8	static
+printer.c:348:6:printer_adc_start	8	static
+printer.c:354:10:printer_get_black_mark_adc_value	8	static
+printer.c:361:6:printer_adc_stop	8	static
+printer.c:371:6:ADC_Init	16	static
+printer.c:412:6:DMA_Init	16	static
+printer.c:423:6:DMA_ADC_Init	8	static
+printer.c:445:6:DMA1_Channel1_IRQHandler	8	static

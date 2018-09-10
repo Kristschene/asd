@@ -1,0 +1,5 @@
+power.c:46:6:power_init	32	static
+power.c:62:6:tp_power_on	8	static
+power.c:67:6:tp_power_off	8	static
+power.c:72:6:mot_power_on	8	static
+power.c:77:6:mot_power_off	8	static
