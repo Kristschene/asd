@@ -38,6 +38,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "power.h"
+#include "led.h"
 
 
 /* Private variables ---------------------------------------------------------*/
@@ -77,6 +78,39 @@ void mot_power_on(void)
 void mot_power_off(void)
 {
 	HAL_GPIO_WritePin(GPIOA, MOT_PWR_PA4, GPIO_PIN_RESET);
+}
+
+void power_deact_all_periph_for_sleep(void)
+{
+	mot_power_off();
+	led_disable();
+	tp_power_off();
+
+	HAL_GPIO_WritePin(GPIOA, STROBE2_PA8, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOA, LATCH_PA9, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, STROBE1_PB1, GPIO_PIN_RESET);
+
+
+	/*GPIO_InitTypeDef GPIO_InitStructure;
+
+	// Enable GPIOs clock
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	__HAL_RCC_GPIOC_CLK_ENABLE();
+
+	// Configure all GPIO port pins in Analog Input mode (floating input trigger OFF)
+	GPIO_InitStructure.Pin = GPIO_PIN_All;
+	GPIO_InitStructure.Mode = GPIO_MODE_ANALOG;
+	GPIO_InitStructure.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStructure);
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStructure);
+	HAL_GPIO_Init(GPIOC, &GPIO_InitStructure); */
+
+
+	__HAL_RCC_GPIOB_CLK_DISABLE();
+	__HAL_RCC_TIM2_CLK_DISABLE();
+	__HAL_RCC_ADC1_CLK_DISABLE();
+	__HAL_RCC_DMA1_CLK_DISABLE();
 }
   
   

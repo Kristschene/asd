@@ -63,7 +63,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 TSC_HandleTypeDef htsc;
-enum eState state;
+enum eState state = eAwake;
 uint32_t maintimer=0; // timer in 1 sek steps
 
 /* USER CODE BEGIN PV */
@@ -72,7 +72,8 @@ uint32_t maintimer=0; // timer in 1 sek steps
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
-void SystemClock_Config(void);
+void SystemClock_ConfigHigh(void);
+void SystemClock_ConfigLow(void);
 static void MX_TSC_Init(void);                                    
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
                                 
@@ -106,19 +107,13 @@ int main(void)
 
   /* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+  SystemClock_ConfigHigh();
 
   /* USER CODE BEGIN SysInit */
 
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-
-  printer_init();
-
-
-  //led_start(htim2);
 
 
   /* USER CODE BEGIN 2 */
@@ -130,6 +125,7 @@ int main(void)
 
   while (1)
   {
+	  char FirstRun = 1;
 
 	  // STATE MACHINE
 	  switch(state)
@@ -137,6 +133,7 @@ int main(void)
 
 
 	  case eAwake:
+		  maintimer = 0;
 		  power_init();
 		  tp_power_on();
 		  led_init();
@@ -148,37 +145,47 @@ int main(void)
 		  while(LINEAR_DETECT==0)
 		  {
 			  tsl_user_Exec();
-			  if(maintimer>= 60)
+			  if(maintimer>= 20)
 			  {
 
 				  break;
 			  }
 		  }
 
-		  if(maintimer>=60) state = eSleep;
+		  if(maintimer>=20) state = eSleep;
 		  else state = ePrint;
 
 
 		  break;
 
-
 	  case ePrint:
+		  printer_init();
+
 		  mot_power_on();
 
 		  led_enable(eFlash,eGreen);
 
 		  printer_print_message(" 03-09-2018 ");
 
-		  state = eAwake;
+
+		  while(printer_get_printer_status()!=0)
+		  {
+			  // Printer is busy
+		  }
+		  mot_power_on();
+
+		  printer_drive_to_next_label();
 
 		  mot_power_off();
+
+		  state = eAwake;
 		  break;
 
 
 	  case eSleep:
-
 		  tsl_user_Init();
-		  maintimer = 0;
+		  maintimer = 5;
+
 
 		  // testing
 		  led_enable(eSteady,eRed);
@@ -186,8 +193,34 @@ int main(void)
 		  while(LINEAR_DETECT==0)
 		  {
 			  tsl_user_Exec();
-			  if(maintimer>=10) led_disable();
+			  if(maintimer>=5)
+			  {
+				  if(FirstRun==1)
+				  {
+					  power_deact_all_periph_for_sleep();
+					  HAL_SuspendTick();
+					  HAL_RCC_DeInit();
+					  SystemClock_ConfigLow();
+					  HAL_SuspendTick();
+
+					  //Enable Low Power Mode
+					  HAL_PWREx_EnableLowPowerRunMode();
+
+					  //MX_TSC_Init();
+					  tsl_user_Init();
+					  FirstRun = 0;
+				  }
+
+				  TSL_tim_ProcessIT();
+
+			  }
 		  }
+
+		  // Disable Low Power Mode
+		  HAL_PWREx_DisableLowPowerRunMode();
+		  HAL_SuspendTick();
+		  HAL_RCC_DeInit();
+		  SystemClock_ConfigHigh();
 
 		  state = eAwake;
 	  		  break;
@@ -223,55 +256,102 @@ void MAIN_TimerIT(void)
   * @brief System Clock Configuration
   * @retval None
   */
-void SystemClock_Config(void)
+void SystemClock_ConfigHigh(void)
 {
 
-  RCC_OscInitTypeDef RCC_OscInitStruct;
-  RCC_ClkInitTypeDef RCC_ClkInitStruct;
+	  RCC_OscInitTypeDef RCC_OscInitStruct;
+	  RCC_ClkInitTypeDef RCC_ClkInitStruct;
 
-    /**Configure the main internal regulator output voltage 
-    */
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+	    /**Configure the main internal regulator output voltage
+	    */
+	  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-    /**Initializes the CPU, AHB and APB busses clocks 
-    */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = 16;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLLMUL_4;
-  RCC_OscInitStruct.PLL.PLLDIV = RCC_PLLDIV_2;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
+	    /**Initializes the CPU, AHB and APB busses clocks
+	    */
+	  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+	  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	  RCC_OscInitStruct.HSICalibrationValue = 16;
+	  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+	  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+	  {
+	    _Error_Handler(__FILE__, __LINE__);
+	  }
 
-    /**Initializes the CPU, AHB and APB busses clocks 
-    */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+	    /**Initializes the CPU, AHB and APB busses clocks
+	    */
+	  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+	                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+	  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+	  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+	  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
+	  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+	  {
+	    _Error_Handler(__FILE__, __LINE__);
+	  }
 
-    /**Configure the Systick interrupt time 
-    */
-  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
+	    /**Configure the Systick interrupt time
+	    */
+	  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 
-    /**Configure the Systick 
-    */
-  HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
+	    /**Configure the Systick
+	    */
+	  HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
-  /* SysTick_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+	  /* SysTick_IRQn interrupt configuration */
+	  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
+
+void SystemClock_ConfigLow(void)
+{
+
+	  RCC_OscInitTypeDef RCC_OscInitStruct;
+	  RCC_ClkInitTypeDef RCC_ClkInitStruct;
+
+	    /**Configure the main internal regulator output voltage
+	    */
+	  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+
+	    /**Initializes the CPU, AHB and APB busses clocks
+	    */
+	  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+	  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+	  RCC_OscInitStruct.HSIState = RCC_HSI_OFF;
+	  RCC_OscInitStruct.MSICalibrationValue = 0;
+	  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_1;
+	  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+	  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+	  {
+	    _Error_Handler(__FILE__, __LINE__);
+	  }
+
+	    /**Initializes the CPU, AHB and APB busses clocks
+	    */
+	  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+	                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+	  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
+	  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+	  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+	  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+	  {
+	    _Error_Handler(__FILE__, __LINE__);
+	  }
+
+	    /**Configure the Systick interrupt time
+	    */
+	  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
+
+	    /**Configure the Systick
+	    */
+	  HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
+
+	  /* SysTick_IRQn interrupt configuration */
+	  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+
+	}
 
 
 /* TSC init function */

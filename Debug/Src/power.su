@@ -1,5 +1,6 @@
-power.c:46:6:power_init	32	static
-power.c:62:6:tp_power_on	8	static
-power.c:67:6:tp_power_off	8	static
-power.c:72:6:mot_power_on	8	static
-power.c:77:6:mot_power_off	8	static
+power.c:47:6:power_init	32	static
+power.c:63:6:tp_power_on	8	static
+power.c:68:6:tp_power_off	8	static
+power.c:73:6:mot_power_on	8	static
+power.c:78:6:mot_power_off	8	static
+power.c:83:6:power_deact_all_periph_for_sleep	8	static

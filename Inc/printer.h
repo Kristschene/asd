@@ -57,13 +57,23 @@ void printer_do_step(char cDirection);
 void printer_drive_to_next_label(void);
 void printer_adc_start(void);
 void printer_adc_stop(void);
+void printer_motor_off(void);
 void printer_print_message(char* pcMessage);
-void printer_prepare_message_for_print(char* pcMessage);
+void PRINTER_Print_ProcessIT(void);
+void printer_prepare_message_for_print(void);
+char printer_get_printer_status(void);
 GPIO_PinState printer_get_paper_status(void);
 uint32_t printer_get_black_mark_adc_value(void);
 
 void DMA1_Channel1_IRQHandler(void);
 
+
+enum ePrinterState
+{
+	ePrepare = 0u,
+	ePrinting,
+	eFinish
+};
 
 /* ########################## Assert Selection ############################## */
 /**

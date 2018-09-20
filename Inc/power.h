@@ -55,6 +55,7 @@ void tp_power_on(void);
 void tp_power_off(void);
 void mot_power_on(void);
 void mot_power_off(void);
+void power_deact_all_periph_for_sleep(void);
 
 /* ########################## Assert Selection ############################## */
 /**

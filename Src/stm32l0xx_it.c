@@ -112,18 +112,18 @@ void PendSV_Handler(void)
 */
 void SysTick_Handler(void)
 {
-  /* USER CODE BEGIN SysTick_IRQn 0 */
+	HAL_IncTick();
 
-  /* USER CODE END SysTick_IRQn 0 */
-  HAL_IncTick();
-  HAL_SYSTICK_IRQHandler();
-  /* TSL timing for ECS, DTO */
-  TSL_tim_ProcessIT();
-  LED_ProcessIT();
-  MAIN_TimerIT();
-  /* USER CODE BEGIN SysTick_IRQn 1 */
+	  if(HAL_RCC_GetHCLKFreq()>1000000)
+	  {
+		  HAL_SYSTICK_IRQHandler();
+		  TSL_tim_ProcessIT();
+		  LED_ProcessIT();
+		  MAIN_TimerIT();
+		  PRINTER_Print_ProcessIT();
+	  }
 
-  /* USER CODE END SysTick_IRQn 1 */
+
 }
 
 /******************************************************************************/

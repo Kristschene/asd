@@ -39,6 +39,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "printer.h"
 #include "fonts.h"
+#include "power.h"
 
 
 /* Private variables ---------------------------------------------------------*/
@@ -52,6 +53,9 @@ DMA_HandleTypeDef hdma_adc;
 ADC_HandleTypeDef hadc;
 uint16_t ADC1ConvertedValue;
 char matrix_array[40][24]= {0};
+char print_flag = 0;
+char* pcPrinterMessage;
+uint16_t adc_value_old = 3500u;
 
 
 void printer_init()
@@ -112,62 +116,150 @@ void printer_init()
 
 void printer_print_message(char* pcMessage)
 {
-	int rows;
-	int columns;
-	char   matrix_value;
-	HAL_GPIO_WritePin(GPIOA, CLK_PA10, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(GPIOA, DATA_PA11, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(GPIOB, STROBE1_PB1, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(GPIOA, STROBE2_PA8, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(GPIOA, LATCH_PA9, GPIO_PIN_SET);
 
-	printer_prepare_message_for_print(pcMessage);
-
-	// rows = 40
-	for(rows=0; rows<40; rows++)
+	if(pcMessage == NULL)
 	{
-		// columns = 192/8 --> Load shift register
-		for(columns=0; columns<24; columns++)
+		print_flag = 0;
+	}
+	else
+	{
+		pcPrinterMessage = pcMessage;
+		printer_prepare_message_for_print();
+		print_flag = 1;
+	}
+}
+
+char printer_get_printer_status(void)
+{
+	return print_flag;
+}
+
+
+void PRINTER_Print_ProcessIT(void)
+{
+	static int rows;
+	static int columns;
+	static char matrix_value;
+	static int timer;
+	static enum ePrinterState eState = ePrepare;
+
+	if(print_flag!=0)
+	{
+		// State Machine for printing process
+		switch(eState)
 		{
-			matrix_value = matrix_array[rows][columns];
-			int shift_bit = 0x80;
-			for(int bit_cnt = 0; bit_cnt < 8; bit_cnt++)
-			{
-				if((matrix_value & shift_bit) != 0x00)
+			case ePrepare:
+				rows = 0;
+				columns = 0;
+				matrix_value = 0;
+				timer = 0;
+				eState = ePrinting;
+				break;
+
+			case ePrinting:
+
+				if(columns < 24) // load data into shift register
 				{
-					HAL_GPIO_WritePin(GPIOA, DATA_PA11, GPIO_PIN_SET);
+					matrix_value = matrix_array[rows][columns];
+					int shift_bit = 0x80;
+					for(int bit_cnt = 0; bit_cnt < 8; bit_cnt++)
+					{
+						if((matrix_value & shift_bit) != 0x00)
+						{
+							HAL_GPIO_WritePin(GPIOA, DATA_PA11, GPIO_PIN_SET);
+						}
+						HAL_GPIO_WritePin(GPIOA, CLK_PA10, GPIO_PIN_SET);
+						for(int i=0; i<=3; i++) // Need some time
+						HAL_GPIO_WritePin(GPIOA, CLK_PA10, GPIO_PIN_RESET);
+						HAL_GPIO_WritePin(GPIOA, DATA_PA11, GPIO_PIN_RESET);
+						shift_bit = shift_bit >> 1;
+					}
+
+				columns++;
 				}
-				HAL_GPIO_WritePin(GPIOA, CLK_PA10, GPIO_PIN_SET);
-				for(int i=0; i<=3; i++)
+				else
+				{
+					if(rows < 40)
+					{
+						timer++; // increments every 1ms
+
+						if(timer<=1) // first  activate thermal head
+						{
+							HAL_GPIO_WritePin(GPIOA, LATCH_PA9, GPIO_PIN_RESET);
+							HAL_GPIO_WritePin(GPIOB, STROBE1_PB1, GPIO_PIN_RESET);
+							HAL_GPIO_WritePin(GPIOA, STROBE2_PA8, GPIO_PIN_RESET);
+
+						}
+						else if(timer<=50)
+						{
+
+						}
+						else if(timer <= 51) // after 40ms deactivate thermal head
+						{
+							HAL_GPIO_WritePin(GPIOB, STROBE1_PB1, GPIO_PIN_SET);
+							HAL_GPIO_WritePin(GPIOA, STROBE2_PA8, GPIO_PIN_SET);
+							HAL_GPIO_WritePin(GPIOA, LATCH_PA9, GPIO_PIN_SET);
+						}
+						else if(timer<=53)
+						{
+							mot_power_on();
+
+						}
+						else if(timer<=54)
+						{
+							printer_do_step(0u);
+						}
+						else if(timer<=60)
+						{
+						}
+						else if(timer<=61)
+						{
+							printer_do_step(0u);
+						}
+						else if(timer<=67)
+						{
+
+						}
+						else if(timer<=68)
+						{
+							//printer_motor_off();
+							mot_power_off();
+							rows++;
+							columns = 0;
+							timer=0;
+						}
+
+					}
+					else
+					{
+						rows = 0;
+						eState = eFinish;
+					}
+
+				}
+				break;
+			case eFinish:
 				HAL_GPIO_WritePin(GPIOA, CLK_PA10, GPIO_PIN_RESET);
 				HAL_GPIO_WritePin(GPIOA, DATA_PA11, GPIO_PIN_RESET);
-				shift_bit = shift_bit >> 1;
-			}
+				HAL_GPIO_WritePin(GPIOB, STROBE1_PB1, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOA, STROBE2_PA8, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOA, LATCH_PA9, GPIO_PIN_SET);
+				print_flag = 0u;
+				eState = ePrepare;
+				break;
 
+			default:
+				break;
 		}
-		HAL_GPIO_WritePin(GPIOA, LATCH_PA9, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOB, STROBE1_PB1, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOA, STROBE2_PA8, GPIO_PIN_RESET); // Activate thermal head for 50 ms
-		HAL_Delay(50u);
+	}
+	/*else
+	{
+		HAL_GPIO_WritePin(GPIOA, CLK_PA10, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(GPIOA, DATA_PA11, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(GPIOB, STROBE1_PB1, GPIO_PIN_SET);
 		HAL_GPIO_WritePin(GPIOA, STROBE2_PA8, GPIO_PIN_SET);
 		HAL_GPIO_WritePin(GPIOA, LATCH_PA9, GPIO_PIN_SET);
-		printer_do_step(0u);
-		HAL_Delay(10u);
-		printer_motor_off();
-		HAL_Delay(50u);
-		printer_do_step(0u);
-		HAL_Delay(10u);
-		printer_motor_off();
-
-	}
-	printer_drive_to_next_label();
-	HAL_Delay(20u);
-	printer_motor_off();
-	HAL_GPIO_WritePin(GPIOA, STROBE1_PB1, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(GPIOA, STROBE2_PA8, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(GPIOA, LATCH_PA9, GPIO_PIN_SET);
-
+	} TODO */
 }
 
 
@@ -232,14 +324,14 @@ void printer_motor_off(void)
 	HAL_GPIO_WritePin(GPIOA, MOT_BIN2_PA7, GPIO_PIN_RESET);
 }
 
-void printer_prepare_message_for_print(char* pcMessage)
+void printer_prepare_message_for_print()
 {
 	int cnt = 0;
 	int u = 0;
 	unsigned char* array_pointer = NULL;
 	for(int i = 0; i<12; i++) // up to 12
 	{
-		switch(pcMessage[i])
+		switch(pcPrinterMessage[i])
 		{
 			case ' ':
 				array_pointer = array_spare;
@@ -321,7 +413,8 @@ void printer_drive_to_next_label(void)
 	  uint16_t Neu = printer_get_black_mark_adc_value();
 
 
-	  if(Neu <= 3850 && Alt > 3850 )
+	  //if(Neu <= 3850 && Alt > 3850 )
+	  if((int16_t)(Alt - Neu) > 15)
 	  {
 		  // If next label is detect do 4 more steps
 		  for(i=0; i<4; i++)
@@ -333,9 +426,10 @@ void printer_drive_to_next_label(void)
 
 	  printer_do_step(0u);
 	  Alt = Neu;
-	  HAL_Delay(5);
+	  HAL_Delay(10);
 	}
 	printer_adc_stop();
+	printer_motor_off();
 }
 
 
