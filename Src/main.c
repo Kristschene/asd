@@ -55,6 +55,7 @@
 #include "led.h"
 #include "power.h"
 #include "printer.h"
+#include "rtc.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -106,8 +107,22 @@ int main(void)
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
+  //__HAL_RCC_RTC_ENABLE();
+
 
   SystemClock_ConfigHigh();
+
+  // Init RTC
+  rtc_init();
+
+  while(1)
+  {
+	  RTC_TimeTypeDef local_time = {0};
+	  HAL_Delay(10000);
+	  local_time =  rtc_get_time();
+	  HAL_Delay(3000);
+	  local_time =  rtc_get_time();
+  }
 
   /* USER CODE BEGIN SysInit */
 
@@ -261,15 +276,23 @@ void SystemClock_ConfigHigh(void)
 
 	  RCC_OscInitTypeDef RCC_OscInitStruct;
 	  RCC_ClkInitTypeDef RCC_ClkInitStruct;
+	  RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
 	    /**Configure the main internal regulator output voltage
 	    */
 	  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
+	    /**Configure LSE Drive Capability
+	    */
+	  HAL_PWR_EnableBkUpAccess();
+
+	  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
+
 	    /**Initializes the CPU, AHB and APB busses clocks
 	    */
-	  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+	  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_LSE;
 	  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
 	  RCC_OscInitStruct.HSICalibrationValue = 16;
 	  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
 	  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
@@ -291,6 +314,13 @@ void SystemClock_ConfigHigh(void)
 	    _Error_Handler(__FILE__, __LINE__);
 	  }
 
+	  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+	  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+	  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+	  {
+		  _Error_Handler(__FILE__, __LINE__);
+	  }
+
 	    /**Configure the Systick interrupt time
 	    */
 	  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
@@ -308,16 +338,23 @@ void SystemClock_ConfigLow(void)
 
 	  RCC_OscInitTypeDef RCC_OscInitStruct;
 	  RCC_ClkInitTypeDef RCC_ClkInitStruct;
+	  RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
 	    /**Configure the main internal regulator output voltage
 	    */
 	  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
 
+	    /**Configure LSE Drive Capability
+	    */
+	  HAL_PWR_EnableBkUpAccess();
+
+	  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
+
 	    /**Initializes the CPU, AHB and APB busses clocks
 	    */
-	  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+	  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI | RCC_OSCILLATORTYPE_LSE;
 	  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
-	  RCC_OscInitStruct.HSIState = RCC_HSI_OFF;
+	  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
 	  RCC_OscInitStruct.MSICalibrationValue = 0;
 	  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_1;
 	  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
@@ -338,6 +375,13 @@ void SystemClock_ConfigLow(void)
 	  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
 	  {
 	    _Error_Handler(__FILE__, __LINE__);
+	  }
+
+	  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+	  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+	  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+	  {
+		  _Error_Handler(__FILE__, __LINE__);
 	  }
 
 	    /**Configure the Systick interrupt time
