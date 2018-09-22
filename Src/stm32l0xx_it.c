@@ -44,7 +44,7 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-
+extern TIM_HandleTypeDef htim21;
 
 /******************************************************************************/
 /*            Cortex-M0+ Processor Interruption and Exception Handlers         */ 
@@ -124,6 +124,28 @@ void SysTick_Handler(void)
 	  }
 
 
+}
+
+void TIM21_IRQHandler(void)
+{
+	/* USER CODE BEGIN TIM21_IRQn 0 */
+
+	/* USER CODE END TIM21_IRQn 0 */
+	HAL_TIM_IRQHandler(&htim21);
+	/* USER CODE BEGIN TIM21_IRQn 1 */
+
+	/* USER CODE END TIM21_IRQn 1 */
+}
+
+void EXTI4_15_IRQHandler(void)
+{
+	/* USER CODE BEGIN EXTI4_15_IRQn 0 */
+
+	/* USER CODE END EXTI4_15_IRQn 0 */
+	HAL_GPIO_EXTI_IRQHandler(DCF77_DATA_PB4);
+	/* USER CODE BEGIN EXTI4_15_IRQn 1 */
+
+	/* USER CODE END EXTI4_15_IRQn 1 */
 }
 
 /******************************************************************************/

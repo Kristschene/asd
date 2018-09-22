@@ -56,6 +56,7 @@
 #include "power.h"
 #include "printer.h"
 #include "rtc.h"
+#include "dcf77.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -95,6 +96,7 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
   */
 int main(void)
 {
+	DCF77_Status_t status,old_status=99;
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -110,19 +112,23 @@ int main(void)
   //__HAL_RCC_RTC_ENABLE();
 
 
-  SystemClock_ConfigHigh();
+  SystemClock_Config();
 
   // Init RTC
   rtc_init();
+  dcf77_init();
+  led_init();
+  power_init();
+  tp_power_on();
 
-  while(1)
+  /*while(1)
   {
 	  RTC_TimeTypeDef local_time = {0};
 	  HAL_Delay(10000);
 	  local_time =  rtc_get_time();
 	  HAL_Delay(3000);
 	  local_time =  rtc_get_time();
-  }
+  }*/
 
   /* USER CODE BEGIN SysInit */
 
@@ -140,6 +146,24 @@ int main(void)
 
   while (1)
   {
+	  // DCF
+	  status=dcf77_read_time();
+	  if(status!=old_status) {
+		old_status=status;
+		if(status==DCF77_NO_SIGNAL) led_enable(eSteady,eRed);
+		if(status==DCF77_WAIT_SYNC)  led_enable(eFlash,eOrange);
+		if(status==DCF77_READING) led_enable(eFlash,eGreen);
+		if(status==DCF77_TIME_ERROR) led_enable(eFlash,eRed);
+	  }
+	  if(status==DCF77_TIME_OK) {
+		while(1)
+		{
+
+			led_enable(eSteady,eGreen);
+		}
+	  }
+  }
+}/*
 	  char FirstRun = 1;
 
 	  // STATE MACHINE
@@ -248,7 +272,7 @@ int main(void)
 	  }
   }
 }
-
+*/
 
 void MAIN_TimerIT(void)
 {
@@ -265,6 +289,65 @@ void MAIN_TimerIT(void)
 	if(eOldState!=state) maintimer = 0;
 
 	eOldState = state;
+}
+
+void SystemClock_Config(void)
+{
+
+  RCC_OscInitTypeDef RCC_OscInitStruct;
+  RCC_ClkInitTypeDef RCC_ClkInitStruct;
+  RCC_PeriphCLKInitTypeDef PeriphClkInit;
+
+    /**Configure the main internal regulator output voltage
+    */
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    /**Initializes the CPU, AHB and APB busses clocks
+    */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_LSE;;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+  RCC_OscInitStruct.HSICalibrationValue = 16;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLLMUL_4;
+  RCC_OscInitStruct.PLL.PLLDIV = RCC_PLLDIV_2;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+    /**Initializes the CPU, AHB and APB busses clocks
+    */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+	  _Error_Handler(__FILE__, __LINE__);
+  }
+
+    /**Configure the Systick interrupt time
+    */
+  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
+
+    /**Configure the Systick
+    */
+  HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
+
+  /* SysTick_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
 
 /**
@@ -394,16 +477,14 @@ void SystemClock_ConfigLow(void)
 
 	  /* SysTick_IRQn interrupt configuration */
 	  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+}
 
-	}
 
-
-/* TSC init function */
+/* TSC init function */ /*
 static void MX_TSC_Init(void)
 {
 
-    /**Configure the TSC peripheral 
-    */
+  //Configure the TSC peripheral
   htsc.Instance = TSC;
   htsc.Init.CTPulseHighLength = TSC_CTPH_4CYCLES;
   htsc.Init.CTPulseLowLength = TSC_CTPL_4CYCLES;
@@ -426,11 +507,6 @@ static void MX_TSC_Init(void)
 
 }
 
-
-
-/* USER CODE BEGIN 4 */
-
-/* USER CODE END 4 */
 
 /**
   * @brief  This function is executed in case of error occurrence.
